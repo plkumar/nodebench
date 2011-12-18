@@ -2,17 +2,16 @@
     "name": "nodebench",
     "version": "0.0.1",
     "description": "NodeBench : An apache bench like web bench marking tool using nodejs.",
-    "homepage": "http://github.com/dannycoates/node-inspector",
-    "author": "Danny Coates <dannycoates@gmail.com>",
-    "keywords": ["debug", "debugger", "inspector", "profiler"],
+    "homepage": "http://github.com/plkumar/nodebench",
+    "author": "Lakshman Peethani <kumar.lakshman@gmail.com>",
+    "keywords": ["nodebench", "node-bench", "benchmark", "web bench mark"],
     "repository": {
       "type": "git",
-      "url": "http://github.com/dannycoates/node-inspector.git"
+      "url": "http://github.com/plkumar/nodebench.git"
     },
     "engines" : { "node": ">=0.3.0" },
-    "bin" : { "node-inspector" : "./bin/inspector.js" },
+    "bin" : { "nodebench" : "./bin/nodebench.js" },
     "dependencies": {
-      "socket.io": "~0.8.2",
-      "paperboy": "~0.0.2"
+      "commander": "~0.5.0"
     }
 }
