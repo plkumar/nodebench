@@ -5,6 +5,7 @@ NodeBench : An apache bench like web bench marking tool using nodejs.
 var cluster = require('cluster');
 var http = require('http');
 var url = require('url');
+var program = require('commander');
 
 var benchmrk_opts = {
 	num_requests : 1,
@@ -19,15 +20,16 @@ var url_options = {
 	agent : false
 };
 
-var program = require('commander');
-
-	//Parse the command line arguments
+//Parse the command line arguments
 program
   .version('0.0.1')
   .usage('[options] <url>')
   .option('-n, --numreqs <n>', 'Number of requests', parseInt)
   .option('-c, --concurrent <n>', 'Number of concurrent request', parseInt)
   .option('-U, --url <url>', 'URL to run bench mark')
+  .option('-A, --authentication <credentials>', 'Basic Authentication credentials colon separated')
+  .option('-P, --proxycred <credentials>', 'Proxy authentication credentials colon separated')
+  .option('-X, --proxy <proxy:port>', 'Proxy server and port <proxy:port>')
   .parse(process.argv);
 
 if(program.numreqs) benchmrk_opts.num_requests=program.numreqs;
