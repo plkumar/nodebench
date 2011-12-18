@@ -38,7 +38,7 @@ if(program.url) {
 
 	console.log(program.url + "\n");
 	var parsedurl = url.parse(program.url);
-
+	//console.log(JSON.stringify(parsedurl));
 	url_options.host = parsedurl.hostname;
 	url_options.port = parsedurl.port;
 	url_options.path = parsedurl.path;
@@ -55,7 +55,7 @@ if (cluster.isMaster) {
 	var current_req=0;
 	var results = [];
 
-	//console.log('n: ' + benchmrk_opts.num_requests + ' c: ' + benchmrk_opts.num_concur + ' ' + JSON.stringify(url_options));
+	console.log('n: ' + benchmrk_opts.num_requests + ' c: ' + benchmrk_opts.num_concur + ' ' + JSON.stringify(url_options));
 	//process.exit(0);
 
 	var timerid = setInterval(spawnWorker, 500);
@@ -109,6 +109,7 @@ if (cluster.isMaster) {
 	var datalen = 0;
 	//console.time('http-request-time-' + process.pid);
 	var startTime = (new Date()).getTime();
+	console.log(JSON.stringify(url_options));
 	var req = http.request(url_options, function (res) {
 			// var req = http.get(url_options, function(res) {
 			res.setEncoding('utf8');
