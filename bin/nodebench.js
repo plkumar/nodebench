@@ -8,7 +8,7 @@ var url = require('url');
 
 var benchmrk_opts = {
 	num_requests : 1,
-	num_concur : 1,
+	num_concur : 1
 };
 
 var url_options = {
@@ -29,7 +29,7 @@ program
   .option('-c, --concurrent <n>', 'Number of concurrent request', parseInt)
   .option('-U, --url <url>', 'URL to run bench mark')
   .parse(process.argv);
-  
+
 if(program.numreqs) benchmrk_opts.num_requests=program.numreqs;
 if(program.concurrent) benchmrk_opts.num_concur = program.concurrent;
 if(program.url) {
@@ -41,7 +41,7 @@ if(program.url) {
 	url_options.port = parsedurl.port;
 	url_options.path = parsedurl.path;
 }else{
-	console.log('Missing arguments')
+	console.log('Missing arguments');
 	process.exit(1);
 }
 
@@ -51,14 +51,30 @@ if (cluster.isMaster) {
 	var num_forked = 0;
 	var num_died = 0;
 	var current_req=0;
+	var results = [];
 
-	var results = new Array();
-	
 	//console.log('n: ' + benchmrk_opts.num_requests + ' c: ' + benchmrk_opts.num_concur + ' ' + JSON.stringify(url_options));
 	//process.exit(0);
-	
+
 	var timerid = setInterval(spawnWorker, 500);
-	
+    
+    function onMessage(msg) {
+        if (msg.cmd && msg.cmd == 'onworkdone') {
+            if (benchmrk_opts.num_requests == spawned_reqs) {
+                console.log('Clearing Timer');
+                clearInterval(timerid);
+                console.log('Results : \n ' + JSON.stringify(results));
+            }
+            console.log('STATUS     : ' + msg.status);
+            //console.log('\nHEADERS    : ' + JSON.stringify(msg.headers));
+            console.log('DataLength : ' + msg.datalength);
+            console.log('Time Taken : ' + msg.time + '\n');
+            results[current_req] = msg;
+            console.log('Current Req ' + current_req);
+            current_req = current_req + 1;
+        }
+    }
+
 	function spawnWorker() {
 		console.log('\n++++++++setInterval++++++\n');
 		if (num_forked == num_died && spawned_reqs <benchmrk_opts.num_requests) {
@@ -67,42 +83,25 @@ if (cluster.isMaster) {
 			var numtofork = ((benchmrk_opts.num_requests-spawned_reqs)>=benchmrk_opts.num_concur)?benchmrk_opts.num_concur:(benchmrk_opts.num_requests-spawned_reqs);
 			console.log("num to fork: " + numtofork + "\n");
 			for (var i = 0; i < numtofork; i++) {
-				
+
 				var worker = cluster.fork();
 				num_forked++;
 				spawned_reqs=spawned_reqs+1;
 				console.log('Worker PID : ' + worker.pid);
-				worker.on('message', function (msg) {
-					if (msg.cmd && msg.cmd == 'onworkdone') {
-						if(benchmrk_opts.num_requests==spawned_reqs)
-						{
-							console.log('Clearing Timer');
-							clearInterval(timerid);
-							console.log('Results : \n ' + JSON.stringify(results));
-						}
-
-						console.log('STATUS     : ' + msg.status);
-						//console.log('\nHEADERS    : ' + JSON.stringify(msg.headers));
-						console.log('DataLength : ' + msg.datalength);
-						console.log('Time Taken : ' + msg.time + '\n');
-						results[current_req]=msg;
-						console.log('Current Req ' + current_req);
-						current_req=current_req+1;
-					}
-				});
+				worker.on('message', onMessage );
 			}
 		}
-		
+
 	}
-	
+
 	cluster.on('death', function (worker) {
 		num_died = num_died + 1;
 		//console.log('worker ' + worker.pid + ' died.');
 		console.log('Number of died : ' + num_died);
 	});
-	
+
 } else {
-	
+
 	/// Worker Process.
 	var timetook;
 	var datalen = 0;
@@ -111,7 +110,7 @@ if (cluster.isMaster) {
 	var req = http.request(url_options, function (res) {
 			// var req = http.get(url_options, function(res) {
 			res.setEncoding('utf8');
-			
+
 			res.on('close', function (err) {
 				process.send({
 					cmd : 'onworkdone',
@@ -121,7 +120,7 @@ if (cluster.isMaster) {
 					time : timetook
 				});
 			});
-			
+
 			res.on('end', function () {
 				//console.timeEnd('http-request-time-' + process.pid);
 				timetook = (new Date()).getTime() - startTime;
@@ -134,18 +133,18 @@ if (cluster.isMaster) {
 				});
 				process.exit(0);
 			});
-			
+
 			res.on('data', function (chunk) {
 				//console.log('BODY: ' + chunk);
 				//console.log('Data Length:' + chunk.length);
 				datalen = datalen + chunk.length;
 			});
 		});
-	
+
 	req.on('error', function (e) {
 		console.log('problem with request: ' + e.message);
-		
+
 	});
-	
+
 	req.end();
 }
