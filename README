@@ -1,0 +1,3 @@
+Introduction
+
+nodebench - Is an Apache Bench like web bench marking tool, that can simulate multiplt concurrent connections to the given url.
