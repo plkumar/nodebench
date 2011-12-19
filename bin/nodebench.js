@@ -13,7 +13,7 @@ var benchmrk_opts = {
 };
 
 var url_options = {
-	host : 'www.google.co.in',
+	hostname : '127.0.0.1',
 	port : 80,
 	path : '/',
 	method : 'GET',
@@ -28,18 +28,19 @@ program
   .option('-c, --concurrent <n>', 'Number of concurrent request', parseInt)
   .option('-U, --url <url>', 'URL to run bench mark')
   .option('-A, --authentication <credentials>', 'Basic Authentication credentials colon separated')
-  .option('-P, --proxycred <credentials>', 'Proxy authentication credentials colon separated')
-  .option('-X, --proxy <proxy:port>', 'Proxy server and port <proxy:port>')
+  //.option('-P, --proxycred <credentials>', 'Proxy authentication credentials colon separated')
+  //.option('-X, --proxy <proxy:port>', 'Proxy server and port <proxy:port>')
   .parse(process.argv);
 
 if(program.numreqs) benchmrk_opts.num_requests=program.numreqs;
 if(program.concurrent) benchmrk_opts.num_concur = program.concurrent;
+if(program.authentication) url_options.auth = program.authentication;
 if(program.url) {
 
-	console.log(program.url + "\n");
+	//console.log(program.url + "\n");
 	var parsedurl = url.parse(program.url);
 	//console.log(JSON.stringify(parsedurl));
-	url_options.host = parsedurl.hostname;
+	url_options.hostname = parsedurl.hostname;
 	url_options.port = parsedurl.port;
 	url_options.path = parsedurl.path;
 }else{
@@ -55,25 +56,37 @@ if (cluster.isMaster) {
 	var current_req=0;
 	var results = [];
 
-	console.log('n: ' + benchmrk_opts.num_requests + ' c: ' + benchmrk_opts.num_concur + ' ' + JSON.stringify(url_options));
+	//console.log('n: ' + benchmrk_opts.num_requests + ' c: ' + benchmrk_opts.num_concur + ' ' + JSON.stringify(url_options));
 	//process.exit(0);
 
-	var timerid = setInterval(spawnWorker, 500);
+	var timerid = setInterval(spawnWorker, 1000);
     
     function onMessage(msg) {
         if (msg.cmd && msg.cmd == 'onworkdone') {
-            if (benchmrk_opts.num_requests == spawned_reqs) {
+
+			console.log(msg.pid + '-STATUS     : ' + msg.status);
+            console.log(msg.pid + '-DataLength : ' + msg.datalength);
+            console.log(msg.pid + '-Time Taken : ' + msg.time + '\n');
+            console.log(msg.pid + '-Current Req ' + current_req);
+
+            results[current_req] = msg;
+			current_req = current_req + 1;
+			
+			if (benchmrk_opts.num_requests == spawned_reqs) {
                 console.log('Clearing Timer');
                 clearInterval(timerid);
-                console.log('Results : \n ' + JSON.stringify(results));
+				console.log("Results : \n");
+				var avgtime=0;
+				var totaldata=0;
+				for(var i=0; i < results.length; i++)
+				{
+					avgtime=avgtime+results[i].time;
+					totaldata = results[i].datalength;
+				}
+				avgtime=avgtime/results.length;
+				console.log("Avg Time : " + avgtime);
+				console.log("Total Data : " + totaldata);
             }
-            console.log('STATUS     : ' + msg.status);
-            //console.log('\nHEADERS    : ' + JSON.stringify(msg.headers));
-            console.log('DataLength : ' + msg.datalength);
-            console.log('Time Taken : ' + msg.time + '\n');
-            results[current_req] = msg;
-            console.log('Current Req ' + current_req);
-            current_req = current_req + 1;
         }
     }
 
@@ -82,14 +95,14 @@ if (cluster.isMaster) {
 		if (num_forked == num_died && spawned_reqs <benchmrk_opts.num_requests) {
 			num_forked = 0;
 			num_died = 0;
+			//Check how many more to spawn.
 			var numtofork = ((benchmrk_opts.num_requests-spawned_reqs)>=benchmrk_opts.num_concur)?benchmrk_opts.num_concur:(benchmrk_opts.num_requests-spawned_reqs);
-			console.log("num to fork: " + numtofork + "\n");
+			//console.log("num to fork: " + numtofork + "\n");
+			
 			for (var i = 0; i < numtofork; i++) {
-
 				var worker = cluster.fork();
 				num_forked++;
-				spawned_reqs=spawned_reqs+1;
-				console.log('Worker PID : ' + worker.pid);
+				spawned_reqs++;
 				worker.on('message', onMessage );
 			}
 		}
@@ -97,8 +110,8 @@ if (cluster.isMaster) {
 	}
 
 	cluster.on('death', function (worker) {
-		num_died = num_died + 1;
-		//console.log('worker ' + worker.pid + ' died.');
+		num_died++;
+		console.log('worker ' + worker.pid + ' died.');
 		console.log('Number of died : ' + num_died);
 	});
 
@@ -107,11 +120,10 @@ if (cluster.isMaster) {
 	/// Worker Process.
 	var timetook;
 	var datalen = 0;
-	//console.time('http-request-time-' + process.pid);
 	var startTime = (new Date()).getTime();
-	console.log(JSON.stringify(url_options));
+	//console.log(JSON.stringify(url_options));
+	console.time(process.pid + '-http-request-time');
 	var req = http.request(url_options, function (res) {
-			// var req = http.get(url_options, function(res) {
 			res.setEncoding('utf8');
 
 			res.on('close', function (err) {
@@ -125,10 +137,11 @@ if (cluster.isMaster) {
 			});
 
 			res.on('end', function () {
-				//console.timeEnd('http-request-time-' + process.pid);
+				console.timeEnd(process.pid + '-http-request-time' );
 				timetook = (new Date()).getTime() - startTime;
 				process.send({
 					cmd : 'onworkdone',
+					pid : process.pid,
 					status : res.statusCode,
 					headers : res.headers,
 					datalength : datalen,
@@ -138,8 +151,7 @@ if (cluster.isMaster) {
 			});
 
 			res.on('data', function (chunk) {
-				//console.log('BODY: ' + chunk);
-				//console.log('Data Length:' + chunk.length);
+				//Sum the data received.
 				datalen = datalen + chunk.length;
 			});
 		});
