@@ -1,5 +1,6 @@
 /*
 NodeBench : An apache bench like web bench marking tool using nodejs.
+Author: Lakshman Peethani
  */
 
 var cluster = require('cluster');
@@ -190,3 +191,4 @@ if (cluster.isMaster) {
 	
 	req.end();
 }
+
